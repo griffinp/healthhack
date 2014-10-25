@@ -266,14 +266,15 @@ def dedup(inputs, outputs):
             [r'%s/all.realigner.intervals' % sambam_dir, r'%s/bam.realignIntervals.Success' % sambam_dir])
 def realignIntervals(inputs, outputs):
     """
-    Run GATK RealignTargetCreator to find suspect intervals for realignment.
-    PG: no reference indel file for 
+    Run GATK RealignTargetCreator to find suspect intervals for realignment. 
     """
-    input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
+    #input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
+    bam_flags = ' '.join(['-I ' + bam_file for bam_file in inputs])
     output_intervals, flag_file = outputs
-    logFile = mkLogFile(logDir, input_bam0, '.realignIntervals.log')
+    logFile = mkLogFile(logDir, inputs[0], '.realignIntervals.log')
     print "calculating realignment intervals for %s" % os.path.basename(input_bam0)
-    runStageCheck('realignIntervals', flag_file, ref_files['fasta_reference'], input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9, logFile, output_intervals)
+    #runStageCheck('realignIntervals', flag_file, ref_files['fasta_reference'], input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9, logFile, output_intervals)
+    runStageCheck('realignIntervals', flag_file, ref_files['fasta_reference'], bam_flags, logFile, output_intervals)
 
 def remove_GATK_bai(bamfile):
     """
@@ -294,11 +295,12 @@ def realign(inputs, outputs):
     Run GATK IndelRealigner for local realignment, using intervals found by realignIntervals.
     Currently this interval file is hard-coded, but it should be possible to include it 'automatically'
     """
-    input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
+    #input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
+    bam_flags = ' '.join(['-I ' + bam_file for bam_file in inputs])
     flag_file = outputs
-    logFile = mkLogFile(logDir, input_bam0, '.realign.2.log')
+    logFile = mkLogFile(logDir, inputs[0], '.realign.2.log')
     print "realigning %s" % os.path.basename(input_bam0)
-    runStageCheck('realign', flag_file, ref_files['fasta_reference'], input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9, logFile)
+    runStageCheck('realign', flag_file, ref_files['fasta_reference'], bam_flags, logFile)
 #    remove_GATK_bai(output_bams)
 
 # NB Have now replaced the version of the 'realign' step below  with the version above, using all files as input simultaneously

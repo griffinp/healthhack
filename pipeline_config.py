@@ -132,7 +132,7 @@ pipeline = {
  #           'igvcountMergedBams', 'countDedupedBam', 'countRunBam', 'countMergedBam',
  #           'collateReadCounts',
  #           ],
-   'end': ['alignBWA'], 
+   'end': ['realignIntervals'], 
    'force': [],
     'rebuild' : "fromend",
 # NB have set pipeline up so that if you set 'restrict_samples' to False, it will use the raw fastq files as input

@@ -9,10 +9,10 @@ For example, @transform can take suffix, regex or formatter matches
 This makes it hard to link jobs effectively 
 
 
-- I don't know how to specify a list of input files to the 'merge' decorator so that it 
-will also be output as a list of files for the actual command. This is a problem in my 
-stages called 'realignIntervals','realign' and 'freebayes1' (both in the config file and the pipeline file)
-
+# I don't know how to specify a list of input files to the 'merge' decorator so that it 
+# will also be output as a list of files for the actual command. This is a problem in my 
+# stages called 'realignIntervals','realign' and 'freebayes1' (both in the config file and the pipeline file)
+FIXED
 
 - currently I have some commands using Popoolation2 hard-coded to use the Popoolation2 
 python scripts from my user directory instead of loading the appropriate module.
@@ -20,6 +20,10 @@ I can't remember why this was - whether I couldn't get the module to load proper
 whether I was impatient about getting the help desk admin people to install the program
 as a module. Anyway, I should replace this with using the module.
 
+
+# apparently for some reason I also hard-coded the Picard tools to use scripts
+#  from my user directory. Currently trying to update this... 
+FIXED
 
 - The pipeline fails to make the fastq_symlinks directory if a relative path is 
 specified instead of a full path, and just throws this error:

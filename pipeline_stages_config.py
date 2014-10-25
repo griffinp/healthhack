@@ -72,11 +72,11 @@ stages = {
         'command': "bwa sampe %ref %meta %align1 %align2 %seq1 %seq2 > %out"
     },
     'samToSortedBam': {
-        'command': "./SortSam 6 VALIDATION_STRINGENCY=LENIENT INPUT=%seq OUTPUT=%out SORT_ORDER=coordinate",
+        'command': "java -Xmx4g -jar /usr/local/picard/1.69/lib/SortSam.jar VALIDATION_STRINGENCY=LENIENT INPUT=%seq OUTPUT=%out SORT_ORDER=coordinate",
         'walltime': "4:00:00",
     },
     'mergeBams': {
-        'command': "./PicardMerge 6 %baminputs USE_THREADING=true VALIDATION_STRINGENCY=LENIENT AS=true OUTPUT=%out",
+        'command': "java -Xmx4g -jar /usr/local/picard/1.69/lib/MergeSamFiles.jar %baminputs USE_THREADING=true VALIDATION_STRINGENCY=LENIENT AS=true OUTPUT=%out",
         'walltime': "72:00:00"
     },
     'indexBam': {
@@ -95,17 +95,18 @@ stages = {
         'modules': [ "tabix/0.2.5" ]
     },
     'realignIntervals': {
-        'command': "java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref -I %input_bam0 -I %input_bam1 -I %input_bam2 -I %input_bam3 -I %input_bam4 -I %input_bam5 -I %input_bam6 -I %input_bam7 -I %input_bam8 -I %input_bam9 --log_to_file %log -o %out",
+        'command': "java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref %bam_flags --log_to_file %log -o %out",
+        #'command': "java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref -I %input_bam0 -I %input_bam1 -I %input_bam2 -I %input_bam3 -I %input_bam4 -I %input_bam5 -I %input_bam6 -I %input_bam7 -I %input_bam8 -I %input_bam9 --log_to_file %log -o %out",
         'memInGB': 23,
         'walltime': "12:00:00"
     },
     'realign': {
-        'command': "java -Xmx55g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref -I %input_bam0 -I %input_bam1 -I %input_bam2 -I %input_bam3 -I %input_bam4 -I %input_bam5 -I %input_bam6 -I %input_bam7 -I %input_bam8 -I %input_bam9 -targetIntervals /vlsci/VR0267/pgriffin/hsm/output_wgs/alignments/all.realigner.intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
+        'command': "java -Xmx55g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref %bam_flags -targetIntervals /vlsci/VR0267/pgriffin/hsm/output_wgs/alignments/all.realigner.intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
         'memInGB': 63,
         'walltime': "30:00:00"
     },
     'dedup': {
-        'command': "./MarkDuplicates 6 INPUT=%bam REMOVE_DUPLICATES=true VALIDATION_STRINGENCY=LENIENT AS=true METRICS_FILE=%log OUTPUT=%out",
+        'command': "java -Xmx6g -jar /usr/local/picard/1.69/lib/MarkDuplicates.jar INPUT=%bam REMOVE_DUPLICATES=true VALIDATION_STRINGENCY=LENIENT AS=true METRICS_FILE=%log OUTPUT=%out",
         'memInGB': 23,
         'walltime': '7:00:00'
     },
