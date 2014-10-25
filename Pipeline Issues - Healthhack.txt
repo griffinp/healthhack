@@ -1,0 +1,82 @@
+List of issues with my pipeline/Rubra/Ruffus
+
+
+- the way that different Ruffus decorators use different ways of matching input files is 
+a bit annoying. 
+For example, @transform can take suffix, regex or formatter matches
+@collate can only take regex or formatter matches
+@merge can only take tasks or file names (with no matches?)
+This makes it hard to link jobs effectively 
+
+
+- I don't know how to specify a list of input files to the 'merge' decorator so that it 
+will also be output as a list of files for the actual command. This is a problem in my 
+stages called 'realignIntervals','realign' and 'freebayes1' (both in the config file and the pipeline file)
+
+
+- currently I have some commands using Popoolation2 hard-coded to use the Popoolation2 
+python scripts from my user directory instead of loading the appropriate module.
+I can't remember why this was - whether I couldn't get the module to load properly or 
+whether I was impatient about getting the help desk admin people to install the program
+as a module. Anyway, I should replace this with using the module.
+
+
+- The pipeline fails to make the fastq_symlinks directory if a relative path is 
+specified instead of a full path, and just throws this error:
+Traceback (most recent call last):
+  File "/vlsci/VR0339/pgriffin/rubra_dev/bin/rubra", line 9, in <module>
+    load_entry_point('Rubra==0.1.5', 'console_scripts', 'rubra')()
+  File "/vlsci/VR0339/pgriffin/rubra_dev/lib/python2.7/site-packages/rubra/rubra.py", line 35, in main
+    __import__(drop_py_suffix(args.pipeline))
+  File "pipeline.py", line 78, in <module>
+    mkDir(working_files['fastq_symlink_dir'])
+  File "/vlsci/VR0339/pgriffin/rubra_dev/lib/python2.7/site-packages/rubra/utils.py", line 63, in mkDir
+    os.mkdir(dir, 0777)
+OSError: [Errno 2] No such file or directory: '~/pipeline_output/fastq_symlinks'
+
+the error message is quite opaque so this requirement could be described somewhere
+
+
+- It seems that the pipeline needs a step to create the output directory
+I've added this in the pipeline.py file
+
+- in the 'print' output for the very first step, I get a warning:
+Job Warning: File match failure: File '/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2.fastq.gz' does not match regex('(.+\/)?(.+?)\_1.fastq\.gz') and pattern '\1\2_2.fastq.gz'
+However surely the symlinks that were created should match the expected format??
+
+
+- I have included a flag ('restrict_samples') to use either the raw or the trimmed 
+fastq files as input. 
+(in practice, you want to use the raw files as input to FastQC and Trimmomatic, and then 
+the trimmed fastq files as input to all the following stages)
+However this is probably very messily and tenuously coded and could be improved. It is 
+located in the pipeline.py file (lines 84-99) and implemented in the pipeline_config.py 
+file (in the command-line default specifications at the end of the file)
+
+- Also, currently the pipeline searches for the trimmed fastq files right at the start - 
+i.e. before they've actually been created - and I have to comment out the bits that 
+mention them (in the pipeline.py file) to be able to even run the first step of the pipeline.
+
+
+
+- I would like to run a summary tool after every stage as a default option and have this 
+somehow integrated into the stage, rather than having to specify it as a separate stage 
+(perhaps the latter part is not realistic though)
+
+- the regex matching is really hard... is there some way to simplify this? e.g. write
+some functions to translate "file ends with .fastq.gz" into regex?
+
+- There is something missing from the rubra utils file perhaps? 
+When trying to 'print' I first get the error
+
+Traceback (most recent call last):
+  File "/vlsci/VR0339/pgriffin/rubra_dev/bin/rubra", line 9, in <module>
+    load_entry_point('Rubra==0.1.5', 'console_scripts', 'rubra')()
+  File "/vlsci/VR0339/pgriffin/rubra_dev/lib/python2.7/site-packages/rubra/rubra.py", line 35, in main
+    __import__(drop_py_suffix(args.pipeline))
+  File "pipeline.py", line 39, in <module>
+    from input_fastq import parse_and_link
+ImportError: No module named input_fastq
+
+and I found that I had previously had 'input_fastq.py' as a separate file in the same
+directory where the rest of the pipeline files were located. 
