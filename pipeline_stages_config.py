@@ -101,7 +101,7 @@ stages = {
         'walltime': "12:00:00"
     },
     'realign': {
-        'command': "java -Xmx55g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref %bam_flags -targetIntervals /vlsci/VR0267/pgriffin/hsm/output_wgs/alignments/all.realigner.intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
+        'command': "java -Xmx55g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref %bam_flags -targetIntervals %intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
         'memInGB': 63,
         'walltime': "30:00:00"
     },

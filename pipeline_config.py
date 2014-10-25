@@ -87,9 +87,9 @@ working_files = {
 #  - indels_realign_1000G: files of known indels for use in GATK local realignment.
 #       Currently the Broad Institute recommends using these two files (see above).
 ref_files = {
-    'fasta_reference': '../Healthack_Example_Files/ref_genome/dmel-2L-chromosome-r5.54.fasta',
-    'bwa_reference': '../Healthhack_Example_Files/dmel-2L-chromosome-r5.54.fasta',
-    'masked_reference': '../Healthhack_Example_Files/dmel-2L-chromosome-r5.54.fasta.masked'
+    'fasta_reference': '/vlsci/VR0339/shared/Healthhack_Example_Data/ref_genome/dmel-2L-chromosome-r5.54.fasta',
+    'bwa_reference': '/vlsci/VR0339/shared/Healthhack_Example_Data/ref_genome/dmel-2L-chromosome-r5.54.fasta',
+    'masked_reference': '../Healthhack_Example_Files/ref_genome/dmel-2L-chromosome-r5.54.fasta.masked'
     }
 
 # pipeline should hold configuration options for Rubra and for the pipeline.

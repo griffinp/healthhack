@@ -8,6 +8,13 @@ For example, @transform can take suffix, regex or formatter matches
 @merge can only take tasks or file names (with no matches?)
 This makes it hard to link jobs effectively 
 
+- would be really nice to have the pipeline check for ref genome, sam and bam
+  file indexes
+ and create them automatically if they don't exist
+ This is already mentioned as a 'TODO' item in the pipeline file
+
+- similarly would be nice to do automatic read groups check before running any
+  GATK tools, as they won't run without read groups in the file
 
 # I don't know how to specify a list of input files to the 'merge' decorator so that it 
 # will also be output as a list of files for the actual command. This is a problem in my 
