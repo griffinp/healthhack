@@ -44,6 +44,48 @@ I've added this in the pipeline.py file
 Job Warning: File match failure: File '/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2.fastq.gz' does not match regex('(.+\/)?(.+?)\_1.fastq\.gz') and pattern '\1\2_2.fastq.gz'
 However surely the symlinks that were created should match the expected format??
 
+- for some reason I end up with duplicate fastq symlinks. I think this means
+  the pipeline is running twice as many jobs as it needs to... e.g.
+
+Symlinked files that will be used:
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_1_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_2_trimmed.fastq.gz
+/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_2_trimmed.fastq.gz
+
+Output dir is /vlsci/VR0339/pgriffin/pipeline_output/output_wgs
+Log dir is log_wgs
+
+bwa aln on C2_C2PUNACXX_L1_1_trimmed.fastq.gz
+bwa aln on C2_C2PUNACXX_L1_1_trimmed.fastq.gz
+bwa aln on C2_C2PUNACXX_L1_2_trimmed.fastq.gz
+bwa aln on C2_C2PUNACXX_L1_2_trimmed.fastq.gz
+bwa aln on C2_C3C4WACXX_L1_1_trimmed.fastq.gz
+bwa aln on C2_C3C4WACXX_L1_1_trimmed.fastq.gz
+bwa aln on C2_C3C4WACXX_L1_2_trimmed.fastq.gz
+bwa aln on C2_C3C4WACXX_L1_2_trimmed.fastq.gz
+bwa aln on S1_C2PUNACXX_L1_1_trimmed.fastq.gz
+bwa aln on S1_C2PUNACXX_L1_1_trimmed.fastq.gz
+bwa aln on S1_C2PUNACXX_L1_2_trimmed.fastq.gz
+bwa aln on S1_C2PUNACXX_L1_2_trimmed.fastq.gz
+bwa aln on S1_C3C4WACXX_L1_1_trimmed.fastq.gz
+bwa aln on S1_C3C4WACXX_L1_1_trimmed.fastq.gz
+bwa aln on S1_C3C4WACXX_L1_2_trimmed.fastq.gz
+bwa aln on S1_C3C4WACXX_L1_2_trimmed.fastq.gz
+
+
 
 - I have included a flag ('restrict_samples') to use either the raw or the trimmed 
 fastq files as input. 
@@ -57,7 +99,9 @@ file (in the command-line default specifications at the end of the file)
 i.e. before they've actually been created - and I have to comment out the bits that 
 mention them (in the pipeline.py file) to be able to even run the first step of the pipeline.
 
-
+- The way I've specified the trimmed files doesn't exclude files ending in
+  'unpaired-trimmed.fastq.gz' (which it should) so I have to manually move
+those files out of the trimmed directory
 
 - I would like to run a summary tool after every stage as a default option and have this 
 somehow integrated into the stage, rather than having to specify it as a separate stage 

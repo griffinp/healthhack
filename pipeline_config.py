@@ -47,7 +47,7 @@
 working_files = {
     'fastq_dirs': [
          '/vlsci/VR0339/shared/Healthhack_Example_Data/raw_reads',
-        #'~/trimmed'
+         '/vlsci/VR0339/pgriffin/pipeline_output/output_wgs/trimmed'
     ],
     #'fastq_symlink_dir': '~/pipeline_output/fastq_symlinks',
     'fastq_symlink_dir': '/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks',
@@ -132,13 +132,13 @@ pipeline = {
  #           'igvcountMergedBams', 'countDedupedBam', 'countRunBam', 'countMergedBam',
  #           'collateReadCounts',
  #           ],
-   'end': ['trimReads'], 
+   'end': ['alignBWA'], 
    'force': [],
     'rebuild' : "fromend",
 # NB have set pipeline up so that if you set 'restrict_samples' to False, it will use the raw fastq files as input
 # (possibly the trimmed ones as well?)
 # and if you set 'restrict_samples' to True, it will use the trimmed fastq files as input
-    'restrict_samples': False,
+    'restrict_samples': True,
     'allowed_samples': []
 }
 

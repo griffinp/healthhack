@@ -66,11 +66,11 @@ trimmed_fastq_files = []
 for fastq_dirs in working_files['fastq_dirs']:
     trimmed_fastq_files += glob(os.path.join(fastq_dir, '*trimmed-paired.fastq.gz'))
 
-#if len(trimmed_fastq_files)==0:
-#    print "No trimmed fastq files found. Do the filenames follow the naming convention?"
-#    print "Directories searched:"
-#    print "\n".join(working_files['fastq_dirs'])
-#    sys.exit(1)
+if len(trimmed_fastq_files)==0:
+    print "No trimmed fastq files found. Do the filenames follow the naming convention?"
+    print "Directories searched:"
+    print "\n".join(working_files['fastq_dirs'])
+    sys.exit(1)
    
 # Parse metadata out of input file names and construct symlinks
 # Metadata is put into a dict (for the rest of ruffus) and some of it also into symlinks (for filename uniqueness)
