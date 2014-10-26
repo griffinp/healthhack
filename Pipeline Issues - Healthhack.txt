@@ -1,5 +1,18 @@
 List of issues with my pipeline/Rubra/Ruffus
 
+- possible bug in Ruffus: when a stage is referred to with >1 '@follows'
+  decorators, and that stage is itself defined further down in the file,
+  Ruffus throws an error implying that we're attempting to 
+ duplicate that stage ('duplicate node')?
+  Bernie tried to replicate this with a simple case but it didn't appear to
+work
+  To get around this, had to put the offending index stages in their correct
+  sequential location in the pipeline
+
+
+- Eventually we want to avoid hard-coding the tools that use java... currently
+  this is necessary because of the way the modules are installed
+
 
 - the way that different Ruffus decorators use different ways of matching input files is 
 a bit annoying. 
@@ -8,18 +21,22 @@ For example, @transform can take suffix, regex or formatter matches
 @merge can only take tasks or file names (with no matches?)
 This makes it hard to link jobs effectively 
 
+
 - would be really nice to have the pipeline check for ref genome, sam and bam
   file indexes
  and create them automatically if they don't exist
  This is already mentioned as a 'TODO' item in the pipeline file
 
+
 - similarly would be nice to do automatic read groups check before running any
   GATK tools, as they won't run without read groups in the file
+
 
 # I don't know how to specify a list of input files to the 'merge' decorator so that it 
 # will also be output as a list of files for the actual command. This is a problem in my 
 # stages called 'realignIntervals','realign' and 'freebayes1' (both in the config file and the pipeline file)
 FIXED
+
 
 - currently I have some commands using Popoolation2 hard-coded to use the Popoolation2 
 python scripts from my user directory instead of loading the appropriate module.
@@ -31,6 +48,9 @@ as a module. Anyway, I should replace this with using the module.
 # apparently for some reason I also hard-coded the Picard tools to use scripts
 #  from my user directory. Currently trying to update this... 
 FIXED
+
+
+- Include command to generate masked genome
 
 - The pipeline fails to make the fastq_symlinks directory if a relative path is 
 specified instead of a full path, and just throws this error:
@@ -48,54 +68,17 @@ OSError: [Errno 2] No such file or directory: '~/pipeline_output/fastq_symlinks'
 the error message is quite opaque so this requirement could be described somewhere
 
 
-- It seems that the pipeline needs a step to create the output directory
-I've added this in the pipeline.py file
+# - It seems that the pipeline needs a step to create the output directory
+# I've added this in the pipeline.py file
+FIXED
 
 - in the 'print' output for the very first step, I get a warning:
 Job Warning: File match failure: File '/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2.fastq.gz' does not match regex('(.+\/)?(.+?)\_1.fastq\.gz') and pattern '\1\2_2.fastq.gz'
 However surely the symlinks that were created should match the expected format??
 
-- for some reason I end up with duplicate fastq symlinks. I think this means
-  the pipeline is running twice as many jobs as it needs to... e.g.
-
-Symlinked files that will be used:
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C2PUNACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/C2_C3C4WACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C2PUNACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_1_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_2_trimmed.fastq.gz
-/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks/S1_C3C4WACXX_L1_2_trimmed.fastq.gz
-
-Output dir is /vlsci/VR0339/pgriffin/pipeline_output/output_wgs
-Log dir is log_wgs
-
-bwa aln on C2_C2PUNACXX_L1_1_trimmed.fastq.gz
-bwa aln on C2_C2PUNACXX_L1_1_trimmed.fastq.gz
-bwa aln on C2_C2PUNACXX_L1_2_trimmed.fastq.gz
-bwa aln on C2_C2PUNACXX_L1_2_trimmed.fastq.gz
-bwa aln on C2_C3C4WACXX_L1_1_trimmed.fastq.gz
-bwa aln on C2_C3C4WACXX_L1_1_trimmed.fastq.gz
-bwa aln on C2_C3C4WACXX_L1_2_trimmed.fastq.gz
-bwa aln on C2_C3C4WACXX_L1_2_trimmed.fastq.gz
-bwa aln on S1_C2PUNACXX_L1_1_trimmed.fastq.gz
-bwa aln on S1_C2PUNACXX_L1_1_trimmed.fastq.gz
-bwa aln on S1_C2PUNACXX_L1_2_trimmed.fastq.gz
-bwa aln on S1_C2PUNACXX_L1_2_trimmed.fastq.gz
-bwa aln on S1_C3C4WACXX_L1_1_trimmed.fastq.gz
-bwa aln on S1_C3C4WACXX_L1_1_trimmed.fastq.gz
-bwa aln on S1_C3C4WACXX_L1_2_trimmed.fastq.gz
-bwa aln on S1_C3C4WACXX_L1_2_trimmed.fastq.gz
-
+# for some reason I end up with duplicate fastq symlinks. I think this means
+#  the pipeline is running twice as many jobs as it needs to... e.g.
+FIXED
 
 
 - I have included a flag ('restrict_samples') to use either the raw or the trimmed 
@@ -106,23 +89,30 @@ However this is probably very messily and tenuously coded and could be improved.
 located in the pipeline.py file (lines 84-99) and implemented in the pipeline_config.py 
 file (in the command-line default specifications at the end of the file)
 
+
+
 - Also, currently the pipeline searches for the trimmed fastq files right at the start - 
 i.e. before they've actually been created - and I have to comment out the bits that 
 mention them (in the pipeline.py file) to be able to even run the first step of the pipeline.
+
 
 - The way I've specified the trimmed files doesn't exclude files ending in
   'unpaired-trimmed.fastq.gz' (which it should) so I have to manually move
 those files out of the trimmed directory
 
+
 - I would like to run a summary tool after every stage as a default option and have this 
 somehow integrated into the stage, rather than having to specify it as a separate stage 
 (perhaps the latter part is not realistic though)
 
+
 - the regex matching is really hard... is there some way to simplify this? e.g. write
 some functions to translate "file ends with .fastq.gz" into regex?
 
+
 - There is something missing from the rubra utils file perhaps? 
 When trying to 'print' I first get the error
+
 
 Traceback (most recent call last):
   File "/vlsci/VR0339/pgriffin/rubra_dev/bin/rubra", line 9, in <module>

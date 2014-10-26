@@ -27,7 +27,7 @@ stageDefaults = {
         "samtools-intel/0.1.19",
         "picard/1.96",
         "R-gcc/3.0.2",
-        "gatk/2.6-5",
+        "gatk/3.2-2",
         "java/1.7.0_25",
         "trimmomatic/0.30",
         "igv/2.3.15",
@@ -82,6 +82,10 @@ stages = {
     'indexBam': {
         'command': "samtools index %bam"
     },
+    'fixReadGroups': {
+        'walltime': "01:00:00",
+        'command': "java -Xmx6g -jar /usr/local/picard/1.69/lib/AddOrReplaceReadGroups.jar INPUT=%input_bam OUTPUT=%output_bam %readgroup_string"
+    },
     'flagstat': {
         'command': "samtools flagstat %bam > %out",
         'walltime': "00:10:00"
@@ -95,13 +99,12 @@ stages = {
         'modules': [ "tabix/0.2.5" ]
     },
     'realignIntervals': {
-        'command': "java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref %bam_flags --log_to_file %log -o %out",
-        #'command': "java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref -I %input_bam0 -I %input_bam1 -I %input_bam2 -I %input_bam3 -I %input_bam4 -I %input_bam5 -I %input_bam6 -I %input_bam7 -I %input_bam8 -I %input_bam9 --log_to_file %log -o %out",
+        'command': "java -Xmx6g -jar /usr/local/gatk/3.2-2/GenomeAnalysisTK.jar --num_threads 8 -T RealignerTargetCreator -R %ref %bam_flags --log_to_file %log -o %out",
         'memInGB': 23,
         'walltime': "12:00:00"
     },
     'realign': {
-        'command': "java -Xmx55g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref %bam_flags -targetIntervals %intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
+        'command': "java -Xmx55g -jar /usr/local/gatk/3.2-2/GenomeAnalysisTK.jar  -T IndelRealigner -R %ref %bam_flags -targetIntervals %intervals --log_to_file %log --nWayOut dedup.realigned.2.bam",
         'memInGB': 63,
         'walltime': "30:00:00"
     },
@@ -117,7 +120,7 @@ stages = {
         'walltime': '36:00:00'
     },
     'selectHighQualVariants':{
-        'command': 'java -Xmx6g -jar /usr/local/gatk/2.6-5/GenomeAnalysisTK.jar -R %ref -T SelectVariants -nt 8 --variant %input_vcf -o %output_vcf -select "QUAL > 1000.0 && DP > 500"',
+        'command': 'java -Xmx6g -jar /usr/local/gatk/3.2-2/GenomeAnalysisTK.jar -R %ref -T SelectVariants -nt 8 --variant %input_vcf -o %output_vcf -select "QUAL > 1000.0 && DP > 500"',
         'memInGB': 23,
         'walltime':'7:00:00'
     },
@@ -132,7 +135,7 @@ stages = {
         'walltime': "3:00:00:00"
     },
     'mpileup': {
-        'command': "samtools mpileup -f %ref -q 20 -B %bam0 %bam1 %bam2 %bam3 %bam4 %bam5 %bam6 %bam7 %bam8 %bam9 > %output_mpileup",
+        'command': "samtools mpileup -f %ref -q 20 -B %bam_files > %output_mpileup",
         'memInGB': 23,
         'walltime': '36:00:00'
     },

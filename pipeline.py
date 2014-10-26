@@ -63,8 +63,10 @@ if len(original_fastq_files)==0:
     sys.exit(1)
 
 trimmed_fastq_files = []
-for fastq_dirs in working_files['fastq_dirs']:
+for fastq_dir in working_files['fastq_dirs']:
     trimmed_fastq_files += glob(os.path.join(fastq_dir, '*trimmed-paired.fastq.gz'))
+
+print("trimmed_fastq_files = {}".format(trimmed_fastq_files))
 
 if len(trimmed_fastq_files)==0:
     print "No trimmed fastq files found. Do the filenames follow the naming convention?"
@@ -174,8 +176,8 @@ def trimReads(inputs, outputs):
 
     runStageCheck('trimReads', flagFile, paired, trim_log, trimmomatic_input)
 
-@follows(trimReads)
-@transform(trimmed_fastq_files, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_trimmed_fastqc' % fastqc_dir, r'%s/\2.trimmed_fastqc.Success' % fastqc_dir])
+
+@transform(trimReads, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_trimmed_fastqc' % fastqc_dir, r'%s/\2.trimmed_fastqc.Success' % fastqc_dir])
 def fastqc_trimmed(inputs, outputs):
     """
     Run FastQC on each trimmed paired fastq file.
@@ -183,7 +185,6 @@ def fastqc_trimmed(inputs, outputs):
     sequence = inputs
     fastqc_dest, flagFile = outputs
     runStageCheck('fastqc', flagFile, fastqc_dir, sequence)
-
 
 
 @transform(fastq_files, regex(r".*?(([^/]+)(_1|_2))(.*?)\.fastq.gz"), 
@@ -261,19 +262,36 @@ def dedup(inputs, outputs):
     print "de-duping %s" % os.path.basename(input_bam)
     runStageCheck('dedup', flag_file, input_bam, logFile, output_bam)
 
+# Fixing Read Group step (needed for GATK stages)
+
+@transform(dedup, suffix('.dedup.bam'),
+           ['.new_rg.bam', 'new_rg.bam.fixReadGroups.Success'])
+def fixReadGroups(inputs, outputs):
+    """
+    Replace read groups using Picard AddorReplaceReadGroups
+    """
+    bam, _success = inputs
+    bam_file = os.path.basename(bam)
+    sample_name = bam_file[:-len('.dedup.bam')]
+    readgroup_string = "RGID=group" + sample_name + " RGLB=lib" + sample_name + " RGPL=illumina RGPU=unit" + sample_name + " RGSM=sample" + sample_name
+    output_bam, flag_file = outputs
+    print "picard AddorReplaceReadGroups on %s" % os.path.basename(bam)
+    runStageCheck('fixReadGroups', flag_file, bam, output_bam, readgroup_string)
+
 @follows('indexDedupedBams')  
-@merge(r"%s/*.dedup.bam" % sambam_dir, 
+@merge(fixReadGroups, suffix('new_rg.bam'), 
             [r'%s/all.realigner.intervals' % sambam_dir, r'%s/bam.realignIntervals.Success' % sambam_dir])
 def realignIntervals(inputs, outputs):
     """
     Run GATK RealignTargetCreator to find suspect intervals for realignment. 
     """
-    #input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
-    bam_flags = ' '.join(['-I ' + bam_file for bam_file in inputs])
+    bam_file, _success = inputs
+    bam_flags = ' '.join(['-I ' + bam_file for bam_file in inputs[bam_file]])
+    print bam_flags
     output_intervals, flag_file = outputs
+    print "This is the inputs list  " + str(inputs)
     logFile = mkLogFile(logDir, inputs[0], '.realignIntervals.log')
     print "calculating realignment intervals for %s" % os.path.basename(inputs[0])
-    #runStageCheck('realignIntervals', flag_file, ref_files['fasta_reference'], input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9, logFile, output_intervals)
     runStageCheck('realignIntervals', flag_file, ref_files['fasta_reference'], bam_flags, logFile, output_intervals)
 
 def remove_GATK_bai(bamfile):
@@ -288,7 +306,6 @@ def remove_GATK_bai(bamfile):
         if e.errno != 2:
             raise e
 
-#@follows(realignIntervals)
 @collate(realignIntervals, regex(r'(.*?)([^/_]+)_([^/_]+_[^/_]+)\.dedup.bam'), 
          [add_inputs(dedup)],
          [r'%s/.deduped.realigned.bam' % sambam_dir, r'%s/.deduped.realigned.Success' % sambam_dir])
@@ -303,49 +320,35 @@ def realign(inputs, outputs):
     print "realigning %s" % os.path.basename(inputs[0])
     runStageCheck('realign', flag_file, ref_files['fasta_reference'], bam_flags, intervals, logFile)
 
+# Apparently this index step has to go here because it's used in two 
+# '@follows' decorators further down. 
+# This appears to be a bug in Ruffus - Bernie will report it
 
-#@merge(r"%s/*.dedup.bam" % sambam_dir, 
-#            [r'%s/.realigned.Success' % sambam_dir])
-#def realign(inputs, outputs):
-#    """
-#    Run GATK IndelRealigner for local realignment, using intervals found by realignIntervals.
-#    Currently this interval file is hard-coded, but it should be possible to include it 'automatically'
-#    """
-#    #input_bam0, input_bam1, input_bam2, input_bam3, input_bam4, input_bam5, input_bam6, input_bam7, input_bam8, input_bam9 = inputs
-#    bam_flags = ' '.join(['-I ' + bam_file for bam_file in inputs])
-#    flag_file = outputs
-#    logFile = mkLogFile(logDir, inputs[0], '.realign.2.log')
-#    print "realigning %s" % os.path.basename(input_bam0)
-#    runStageCheck('realign', flag_file, ref_files['fasta_reference'], bam_flags, logFile)
-#    remove_GATK_bai(output_bams)
+@transform(realign, suffix('.bam'),
+            ['.bam.bai', '.bam.indexRealignedBams.Success'])
+def indexRealignedBams(inputs, outputs):
+    """
+    Index the locally realigned bams using samtools.
+    """
+    bam, _success = inputs
+    output, flag_file = outputs
+    print "samtools index on %s" % os.path.basename(bam)
+    runStageCheck('indexBam', flag_file, bam)
 
-# NB Have now replaced the version of the 'realign' step below  with the version above, using all files as input simultaneously
-# so that indels are realigned in the same way for each file (hopefully)
 
-#@transform(dedup, regex(r'(.*?)([^/]+)\.dedup.bam'), [r'\1\2.dedup.realigned.bam', r'\1\2.bam.realign.Success'])
-#def realign(inputs, outputs):
-#    """
-#    Run GATK IndelRealigner for local realignment, using homemade list of all intervals found for individual files.
-#    (this list is hardcoded into the pipeline_stages_config file currently)
-#    """
-#    input_bam, _success = inputs
-#    output_bam, flag_file = outputs
-#    logFile = mkLogFile(logDir, input_bam, '.realign.log')
-#    print "realigning %s" % os.path.basename(input_bam)
-#    runStageCheck('realign', flag_file, ref_files['fasta_reference'], input_bam, logFile, output_bam)
-#    remove_GATK_bai(output_bam)
-
-@follows('indexRealignedBams')
-@merge(r"%s/*.dedup.realigned.bam" % sambam_dir, [r'%s/output.freebayes.vcf' % variant_dir, r'%s/freebayes.Success' % variant_dir])
+@follows(indexRealignedBams)
+@merge(realign, regex(r'(.*?)([^/_]+)_([^/_]+_[^/_]+)\.dedup.realigned.bam'), 
+       [r'%s/output.freebayes.vcf' % variant_dir, r'%s/freebayes.Success' % variant_dir])
 def freebayes1(inputs,outputs):
     """
     First run of Freebayes, i.e. before Base Quality Score Recalibration
     """
-    bam0, bam1, bam2, bam3, bam4, bam5, bam6, bam7, bam8, bam9 = inputs
+    bam_file, _success = inputs
+    bam_files = ' '.join([bam_file for bam_file in inputs[bam_files]])
     output_vcf, flag_file = outputs
     logFile = mkLogFile(logDir, bam1, '.freebayes.log')
     print "call variants using FreeBayes: %s" % os.path.basename(bam1)
-    runStageCheck('freebayes1', flag_file, bam0, bam1, bam2, bam3, bam4, bam5, bam6, bam7, bam8, bam9, ref_files['fasta_reference'],  output_vcf)
+    runStageCheck('freebayes1', flag_file, bam_files, ref_files['fasta_reference'],  output_vcf)
 
 @transform(freebayes1, regex(r"%s/*.output.freebayes.vcf"), [r'%s/highqual.vcf' % variant_dir, r'%s/highqual.Success' % variant_dir])
 def selectHighQualVariants(inputs,outputs):
@@ -358,41 +361,44 @@ def selectHighQualVariants(inputs,outputs):
     print "select high quality variants using GATK SelectVariants: %s" % os.path.basename(input_vcf)
     runStageCheck('selectHighQualVariants', flag_file, ref_files['fasta_reference'], input_vcf, output_vcf)
 
-@merge(r"%s/*.dedup.realigned.bam" % sambam_dir, [r'%s/output.mpileup' % variant_dir, r'%s/mpileup.Success' % variant_dir])
+@follows(indexRealignedBams)
+@merge(realign, regex(r'(.*?)([^/_]+)_([^/_]+_[^/_]+)\.dedup.realigned.bam'), 
+       [r'%s/output.pileup' % variant_dir, r'%s/pileup.Success' % variant_dir])
 def mpileup(inputs,outputs):
     """
     Mpileup  of dedupped, realigned bams - using samtools
     """
-    bam0, bam1, bam2, bam3, bam4, bam5, bam6, bam7, bam8, bam9 = inputs
+    bam_files, _success = inputs
+    bam_files = ' '.join([bam_file for bam_file in inputs[bam_files]])
     output_mpileup, flag_file = outputs
-    logFile = mkLogFile(logDir, bam0, '.mpileup.log')
-    print "Make mpileup using Samtools: %s and other 9 files" % os.path.basename(bam0)
-    runStageCheck('mpileup', flag_file, ref_files['masked_reference'], bam0, bam1, bam2, bam3, bam4, bam5, bam6, bam7, bam8, bam9, output_mpileup)    
+    logFile = mkLogFile(logDir, bam_files[0], '.mpileup.log')
+    print "Make mpileup using Samtools: %s and other files" % os.path.basename(bam_files[0])
+    runStageCheck('mpileup', flag_file, ref_files['masked_reference'], bam_files, output_mpileup)    
 
-@transform(r"%s/output.mpileup" % variant_dir, regex(r'output.mpileup'), [r'output.sync', r'sync.Success'])
+@transform(mpileup, regex(r'output.pileup'), [r'output.sync', r'sync.Success'])
 def mpileuptosync(inputs,outputs):
     """
     Convert mpileup to sync format for use in Popoolation2
     """
-    input_mpileup = inputs
+    input_mpileup, _success = inputs
     output_sync, flag_file = outputs
     logFile = mkLogFile(logDir, input_mpileup, '.sync.log')
     print "convert from mpileup to sync format: %s" % os.path.basename(input_mpileup)
     runStageCheck('mpileuptosync', flag_file, input_mpileup, output_sync)    
 
-@transform(r'%s/output.sync' % variant_dir, regex(r'output.sync'), [r'cmh_test.txt', r'cmh_test.Success'])
+@transform(mpileuptosync, regex(r'output.sync'), [r'cmh_test.txt', r'cmh_test.Success'])
 def cmhTest(inputs, outputs):
     """
     Perform a single Cochran-Mantel-Haenzel Test 
     Populations paired in just one arrangement
     """
-    sync = inputs
+    sync, _success = inputs
     out, flag_file = outputs
     logFile = mkLogFile(logDir, sync, '.cmh.log')
     print "perform CMH test: %s" % os.path.basename(sync)
     runStageCheck('cmhTest', flag_file, sync, out)
 
-@transform(r'%s/cmh_test.txt' % variant_dir, regex(r'cmh_test.txt'), [r'cmh_test.gwas', r'cmh2gwas.Success'])
+@transform(cmhTest, regex(r'cmh_test.txt'), [r'cmh_test.gwas', r'cmh2gwas.Success'])
 def cmh2gwas(inputs, outputs):
     """
     Convert the results of the CMH test to GWAS format for viewing in IGV.
@@ -527,7 +533,7 @@ def indexMergedBams(inputs, outputs):
     print "samtools index on %s" % os.path.basename(bam)
     runStageCheck('indexBam', flag_file, bam)
 
-@transform(dedup, suffix('.bam'),
+@transform(fixReadGroups, suffix('.bam'),
             ['.bam.bai', '.bam.indexDedupedBams.Success'])
 def indexDedupedBams(inputs, outputs):
     """
@@ -537,19 +543,6 @@ def indexDedupedBams(inputs, outputs):
     output, flag_file = outputs
     print "samtools index on %s" % os.path.basename(bam)
     runStageCheck('indexBam', flag_file, bam)
-
-@transform(r'%s/*.dedup.realigned.bam' % sambam_dir, suffix('.bam'),
-            ['.bam.bai', '.bam.indexRealignedBams.Success'])
-def indexRealignedBams(inputs, outputs):
-    """
-    Index the locally realigned bams using samtools.
-    """
-    bam = inputs
-    output, flag_file = outputs
-    print "samtools index on %s" % os.path.basename(bam)
-    runStageCheck('indexBam', flag_file, bam)
-
-
 
 @transform(mergeBams, suffix('.bam'),
             ['.bam.tdf', '.bam.igvcountMergedBams.Success'])
@@ -662,9 +655,11 @@ def dedupedDepthOfCoverage(inputs, outputs):
     print "calculating coverage statistics using GATK DepthOfCoverage on %s" % bam
     runStageCheck('depthOfCoverage', flag_file, ref_files['fasta_reference'], bam, output_base)
 
-@follows(indexRecalibratedBams)
-@transform(baseQualRecalTabulate, 
-            regex(r'(.*?)([^/]+)\.recal\.bam'),
+#@follows(indexRecalibratedBams)
+#@transform(baseQualRecalTabulate, 
+@follows(indexRealignedBams)
+@transform(realign,
+            regex(r'(.*?)([^/]+)\.bam'),
             [r'%s/\2.DepthOfCoverage.sample_cumulative_coverage_counts' % coverage_dir, 
             r'%s/\2.DepthOfCoverage.sample_cumulative_coverage_proportions' % coverage_dir, 
             r'%s/\2.DepthOfCoverage.sample_interval_statistics' % coverage_dir, 
