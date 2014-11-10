@@ -22,11 +22,11 @@ For example, @transform can take suffix, regex or formatter matches
 This makes it hard to link jobs effectively 
 
 
-- would be really nice to have the pipeline check for ref genome, sam and bam
-  file indexes
- and create them automatically if they don't exist
- This is already mentioned as a 'TODO' item in the pipeline file
-
+#- would be really nice to have the pipeline check for ref genome, sam and bam
+#  file indexes
+# and create them automatically if they don't exist
+# This is already mentioned as a 'TODO' item in the pipeline file
+DONE, just have to add these as end stages for them to be run
 
 - similarly would be nice to do automatic read groups check before running any
   GATK tools, as they won't run without read groups in the file

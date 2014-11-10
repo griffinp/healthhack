@@ -25,7 +25,8 @@ stageDefaults = {
         "intel/13.1.3",
         "bwa-intel/0.6.2",
         "samtools-intel/0.1.19",
-        "picard/1.96",
+        #"picard/1.96",
+        "picard/1.69",
         "R-gcc/3.0.2",
         "gatk/3.2-2",
         "java/1.7.0_25",
@@ -44,6 +45,18 @@ stageDefaults = {
 # Each stage must contain a 'command' definition. See stageDefaults above for other 
 # allowable options.
 stages = {
+    "indexBWA": {
+        "command": "bwa index -p %index_prefix %ref_file",
+        "walltime": "2:00:00"
+    },
+    "indexSamtools": {
+        "command": "samtools faidx %ref_file",
+        "walltime": "1:00:00"
+    },
+    "dictPicard": {
+        "command": "java -Xmx4g -jar /usr/local/picard/1.69/lib/CreateSequenceDictionary.jar R= %ref_file O= %out",
+        "walltime": "1:00:00"
+    },
     "fastqc": {
         "command": "fastqc --quiet -o %outdir %seq",
         "walltime": "1:00:00",

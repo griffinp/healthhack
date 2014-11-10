@@ -116,6 +116,9 @@ print
 output_dir = working_files['output_dir']
 mkDir(output_dir)
 
+ref_dir = ref_files['ref_dir']
+mkDir(ref_dir)
+
 fastqc_dir = os.path.join(output_dir, "FastQC")
 mkDir(fastqc_dir)
 
@@ -141,6 +144,37 @@ mkDir(results_dir)
 # Pipeline declarations
 
 # Alignment and correction steps
+
+@transform(ref_files['bwa_reference'], suffix('.fasta'),
+           [r'\1.fasta', r'\1.fasta.indexBWA.Success'])
+def indexBWA(input, outputs):
+    """
+    Index the reference genome before starting using bwa index.
+    """
+    ref_file = input
+    index_prefix, flagFile = outputs
+    runStageCheck('indexBWA', flagFile, index_prefix, ref_file)
+
+@transform(ref_files['bwa_reference'], suffix('.fasta'),
+           r'\1.indexSamtools.Success')
+def indexSamtools(input, outputs):
+    """
+    Index the reference genome using Samtools faidx.
+    """
+    ref_file = input
+    _success = outputs
+    runStageCheck('indexSamtools', _success, ref_file)
+
+@transform(ref_files['bwa_reference'], suffix('.fasta'),
+           [r'\1.dict', r'\1.dictPicard.Success'])
+def dictPicard(input, outputs):
+    """
+    Make a dictionary index of the reference genome
+    using picard CreateSequenceDictionary.jar.
+    """
+    ref_file = input
+    out, _success = outputs
+    runStageCheck('dictPicard', _success, ref_file, out)
 
 @transform(fastq_files, regex('(.+\/)?(.+?)\.fastq\.gz'), 
         [r'%s/\2_fastqc' % fastqc_dir, r'%s/\2.fastqc.Success' % fastqc_dir])
@@ -177,7 +211,7 @@ def trimReads(inputs, outputs):
     runStageCheck('trimReads', flagFile, paired, trim_log, trimmomatic_input)
 
 
-@transform(trimReads, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_trimmed_fastqc' % fastqc_dir, r'%s/\2.trimmed_fastqc.Success' % fastqc_dir])
+@transform(trimReads, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_fastqc' % fastqc_dir, r'%s/\2.fastqc.Success' % fastqc_dir])
 def fastqc_trimmed(inputs, outputs):
     """
     Run FastQC on each trimmed paired fastq file.
@@ -186,7 +220,7 @@ def fastqc_trimmed(inputs, outputs):
     fastqc_dest, flagFile = outputs
     runStageCheck('fastqc', flagFile, fastqc_dir, sequence)
 
-
+@follows(indexBWA)
 @transform(fastq_files, regex(r".*?(([^/]+)(_1|_2))(.*?)\.fastq.gz"), 
         [r"%s/\1.sai" % sambam_dir, r"%s/\1.alignBwa.Success" % sambam_dir])
 def alignBWA(inputs, outputs):
