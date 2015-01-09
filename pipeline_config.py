@@ -46,13 +46,11 @@
 
 working_files = {
     'fastq_dirs': [
-         '/vlsci/VR0339/shared/Healthhack_Example_Data/raw_reads',
-         '/vlsci/VR0339/pgriffin/pipeline_output/output_wgs/trimmed'
+         '/vlsci/VR0267/pgriffin/hsm/methyl/raw_reads',
+         '/vlsci/VR0267/pgriffin/hsm/methyl/output_wgs/trimmed'
     ],
-    #'fastq_symlink_dir': '~/pipeline_output/fastq_symlinks',
-    'fastq_symlink_dir': '/vlsci/VR0339/pgriffin/pipeline_output/fastq_symlinks',
-    #'output_dir': '~/pipeline_output/output_wgs'
-    'output_dir': '/vlsci/VR0339/pgriffin/pipeline_output/output_wgs'
+    'output_dir': '/vlsci/VR0267/pgriffin/hsm/methyl/output_wgs',
+    'fastq_symlink_dir': '/vlsci/VR0267/pgriffin/hsm/methyl/output_wgs/fastq_symlinks'
 }
 
 # This section is used by the variant calling pipeline.py to specify reference data files.
@@ -88,10 +86,10 @@ working_files = {
 #       Currently the Broad Institute recommends using these two files (see above).
 
 ref_files = {
-    'ref_dir' : '/vlsci/VR0339/shared/Healthhack_Example_Data/ref_genome/', 
-    'fasta_reference': '/vlsci/VR0339/shared/Healthhack_Example_Data/ref_genome/dmel-2L-chromosome-r5.54.fasta',
-    'bwa_reference': '/vlsci/VR0339/shared/Healthhack_Example_Data/ref_genome/dmel-2L-chromosome-r5.54.fasta',
-    'masked_reference': '../Healthhack_Example_Files/ref_genome/dmel-2L-chromosome-r5.54.fasta.masked'
+    'ref_dir' : '/vlsci/VR0267/pgriffin/hsm/methyl/ref_genome/unmasked', 
+    'fasta_reference': '/vlsci/VR0267/pgriffin/hsm/methyl/ref_genome/unmasked/lambda_and_Alyr.fasta',
+    'bwa_reference': '/vlsci/VR0267/pgriffin/hsm/methyl/ref_genome/unmasked/lambda_and_Alyr.fasta',
+    'masked_reference': '/vlsci/VR0267/pgriffin/hsm/methyl/ref_genome/lambda_and_Alyr_masked.fasta'
     }
 
 # pipeline should hold configuration options for Rubra and for the pipeline.
@@ -134,11 +132,7 @@ pipeline = {
  #           'igvcountMergedBams', 'countDedupedBam', 'countRunBam', 'countMergedBam',
  #           'collateReadCounts',
  #           ],
-   'end': ['indexBWA', 
-           'realign', 'earlyDepthOfCoverage', 
-           'finalDepthOfCoverage', 'countDedupedBam', 
-           'countRunBam', 'countMergedBam',
-           'collateReadCounts'], 
+   'end': ['mergeBams'], 
    'force': [],
     'rebuild' : "fromend",
 # NB have set pipeline up so that if you set 'restrict_samples' to False, it will use the raw fastq files as input

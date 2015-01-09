@@ -46,6 +46,9 @@ ref_files = pipeline_options.ref_files
 working_files = pipeline_options.working_files
 logDir = pipeline_options.pipeline['logDir']
 
+output_dir = working_files['output_dir']
+mkDir(output_dir)
+
 # Data setup process and input organisation and metadata functions
 
 #Metadata holding structures
@@ -68,11 +71,11 @@ for fastq_dir in working_files['fastq_dirs']:
 
 print("trimmed_fastq_files = {}".format(trimmed_fastq_files))
 
-if len(trimmed_fastq_files)==0:
-    print "No trimmed fastq files found. Do the filenames follow the naming convention?"
-    print "Directories searched:"
-    print "\n".join(working_files['fastq_dirs'])
-    sys.exit(1)
+#if len(trimmed_fastq_files)==0:
+#    print "No trimmed fastq files found. Do the filenames follow the naming convention?"
+#    print "Directories searched:"
+#    print "\n".join(working_files['fastq_dirs'])
+#    sys.exit(1)
    
 # Parse metadata out of input file names and construct symlinks
 # Metadata is put into a dict (for the rest of ruffus) and some of it also into symlinks (for filename uniqueness)
@@ -91,12 +94,12 @@ for file in trimmed_fastq_files:
 
 # Make a list of files we will actually use
 if pipeline_options.pipeline['restrict_samples']:
-#    if pipeline_options.pipeline['allowed_samples']:
-#        allowed_samples = set(pipeline_options.pipeline['allowed_samples'])
-#        fastq_files = [file for file in sorted(all_fastq_files) 
-#                            if (fastq_metadata[os.path.basename(file)]['sample'] in allowed_samples)]
-#    else:
-    fastq_files = sorted(all_trimmed_fastq_files)
+    if pipeline_options.pipeline['allowed_samples']:
+        allowed_samples = set(pipeline_options.pipeline['allowed_samples'])
+        fastq_files = [file for file in sorted(all_fastq_files) 
+                            if (fastq_metadata[os.path.basename(file)]['sample'] in allowed_samples)]
+    else:
+        fastq_files = sorted(all_trimmed_fastq_files)
 else:
     fastq_files = sorted(all_fastq_files)
 ### SETTING INPUT FILES TO THE TRIMMED FILES IF 'RESTRICT_SAMPLES' = TRUE
@@ -113,8 +116,8 @@ print
 
 # Create output subdirectories
 
-output_dir = working_files['output_dir']
-mkDir(output_dir)
+#output_dir = working_files['output_dir']
+#mkDir(output_dir)
 
 ref_dir = ref_files['ref_dir']
 mkDir(ref_dir)
@@ -199,7 +202,7 @@ def trimReads(inputs, outputs):
 
     #### trying to include some configuration parameters for Trimmomatic
 
-    adapter_seq = '../variant_calling_pipeline/TruSeq3-PE.fa'
+    adapter_seq = '~/hsm/methyl/pipeline/TruSeq3-PE.fa'
     seed_mismatches = 0
     palendrome_clip_threshold = 30
     simple_clip_threshold = 10
@@ -211,7 +214,7 @@ def trimReads(inputs, outputs):
     runStageCheck('trimReads', flagFile, paired, trim_log, trimmomatic_input)
 
 
-@transform(trimReads, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_fastqc' % fastqc_dir, r'%s/\2.fastqc.Success' % fastqc_dir])
+@transform(trimmed_fastq_files, regex('(.+\/)?(.+?)\.fastq\.gz'), [r'%s/\2_fastqc' % fastqc_dir, r'%s/\2.fastqc.Success' % fastqc_dir])
 def fastqc_trimmed(inputs, outputs):
     """
     Run FastQC on each trimmed paired fastq file.
@@ -220,58 +223,136 @@ def fastqc_trimmed(inputs, outputs):
     fastqc_dest, flagFile = outputs
     runStageCheck('fastqc', flagFile, fastqc_dir, sequence)
 
-@follows(indexBWA)
-@transform(fastq_files, regex(r".*?(([^/]+)(_1|_2))(.*?)\.fastq.gz"), 
-        [r"%s/\1.sai" % sambam_dir, r"%s/\1.alignBwa.Success" % sambam_dir])
-def alignBWA(inputs, outputs):
+@transform(trimmed_fastq_files, regex('(.+\/)?(.+?)\.trimmed-paired\.fastq\.gz'),
+           [r'%s/\2.fastq' % trimmed_dir, r'%s/\2.gunzip.Success' % trimmed_dir])
+def gUnzip(input, outputs):
     """
-    Align sequence reads to the reference genome. This is bwa's first stage, bwa aln.
-    Use -I for _sequence.txt files.
+    Unzip fastq.gz files to produce fastq files needed by Bismark
     """
-    seq = inputs
+    seq = input
     output, flag_file = outputs
-    encodingflag = ''
-    if fastq_metadata[os.path.basename(seq)]['encoding'] == 'I':
-        encodingflag = '-I'
-    print "bwa aln on %s" % os.path.basename(seq)
-    runStageCheck('alignBWA', flag_file, encodingflag, ref_files['bwa_reference'], seq, output)
+    runStageCheck('gUnzip', flag_file, seq, output)
+
+
+@collate(gUnzip, regex(r"(.*?)([^/]+)(_R1|_R2).fastq"),
+        add_inputs(r"%s/\2\3.fastq" % trimmed_dir),
+        [r"%s/\2_R1.fastq_unmapped_reads_1.fq" % sambam_dir, r"%s/\2_R2.fastq_unmapped_reads_2.fq" % sambam_dir, r"%s/\2_R1.fastq_bismark_bt2_pe.sam" % sambam_dir, r"%s/\2_R1.fastq_bismark_bt2_PE_report.txt" % sambam_dir, r"%s/\2.alignBismark.Success" % sambam_dir])
+def alignBismark(inputs, outputs):
+    """
+    Align sequence reads to the bisulfite-transformed reference genome.
+    Currently using bowtie2 for alignment.
+    """
+    [[s1,_success1], seq1], [[s2,_success2], seq2] = inputs
+    output_unmapped_1, output_unmapped_2, output_sam, output_report, flag_file = outputs
+    sambam_dir = output_dir
+    print "Bismark (bowtie2) align on %s" % os.path.basename(seq1)
+    runStageCheck('alignBismark', flag_file, output_dir, ref_dir, seq1, seq2)
+
+@transform(alignBismark, regex(r"(.*?)([^/]+)(_R1|_R2).fastq_unmapped_reads(_1|_2).fq"),
+        [r"%s/\2_R1.fastq_unmapped_reads_1.fq_unmapped_reads.fq" % sambam_dir, r"%s/\2_R1.fastq_unmapped_reads_1.fq_bismark_bt2.sam" % sambam_dir, r"%s/\2_R1.fastq_unmapped_reads_1.fq_bismark_bt2_SE_report.txt" % sambam_dir, r"%s/\2.alignBismarkSE_R1.Success" % sambam_dir])
+def alignBismarkSE_R1(inputs, outputs):
+    """
+    Align sequence reads to the bisulfite-transformed reference genome.
+    This step does single-end read mapping using only the reads unmapped in the previous (PE) step.
+    Currently using bowtie2 for alignment.
+    """
+    unmapped_1, unmapped_2, pe, report, _success = inputs
+    
+    output_unmapped_1, output_sam, output_report, flag_file = outputs
+    sambam_dir = output_dir
+    print "Bismark (bowtie2) SE align on %s" % os.path.basename(unmapped_1)
+    runStageCheck('alignBismarkSE_R1', flag_file, output_dir, ref_dir, unmapped_1)
+
+@transform(alignBismark, regex(r"(.*?)([^/]+)(_R1|_R2).fastq_unmapped_reads(_1|_2).fq"),
+        [r"%s/\2_R2.fastq_unmapped_reads_2.fq_unmapped_reads.fq" % sambam_dir, r"%s/\2_R2.fastq_unmapped_reads_2.fq_bismark_bt2.sam" % sambam_dir, r"%s/\2_R2.fastq_unmapped_reads_2.fq_bismark_bt2_SE_report.txt" % sambam_dir, r"%s/\2.alignBismarkSE_R2.Success" % sambam_dir])
+def alignBismarkSE_R2(inputs, outputs):
+    """
+    Align sequence reads to the bisulfite-transformed reference genome.
+    This step does single-end read mapping using only the reads unmapped in the previous (PE) step.
+    Currently using bowtie2 for alignment.
+    """
+    unmapped_1, unmapped_2, pe, report, _success = inputs
+    
+    output_unmapped_2, output_sam, output_report, flag_file = outputs
+    sambam_dir = output_dir
+    print "Bismark (bowtie2) SE align on %s" % os.path.basename(unmapped_2)
+    runStageCheck('alignBismarkSE_R2', flag_file, output_dir, ref_dir, unmapped_2)
+
+#@follows(indexBWA)
+#@transform(fastq_files, regex(r".*?(([^/]+)(_1|_2))(.*?)\.fastq.gz"), 
+#        [r"%s/\1.sai" % sambam_dir, r"%s/\1.alignBwa.Success" % sambam_dir])
+#def alignBWA(inputs, outputs):
+#    """
+#    Align sequence reads to the reference genome. This is bwa's first stage, bwa aln.
+#    Use -I for _sequence.txt files.
+#    """
+#    seq = inputs
+#    output, flag_file = outputs
+#    encodingflag = ''
+#    if fastq_metadata[os.path.basename(seq)]['encoding'] == 'I':
+#        encodingflag = '-I'
+#    print "bwa aln on %s" % os.path.basename(seq)
+#    runStageCheck('alignBWA', flag_file, encodingflag, ref_files['bwa_reference'], seq, output)
 
 # Convert alignments to SAM format.
 # This assumes paired-end; if we have single end we should wrap in a conditional and in the other case
 #   define with @transform not @collate, and call SamSE not SamPE
-@collate(alignBWA, regex(r"(.*?)([^/]+)(_1|_2)\.sai"), 
-        add_inputs(r"%s/\2\3_trimmed.fastq.gz" % working_files['fastq_symlink_dir']),
-        [r"\1\2.sam", r"\1\2.alignToSam.Success"])
-def alignToSam(inputs, outputs):
-    """
-    Turn two paired-end bwa "sai" alignments into a sam file.
-    """
-    output,flag_file = outputs
-    [sai1, seq1], [sai2, seq2] = [[sai, seq] for [[sai, _flag_file], seq] in inputs]
-    fastq_name = os.path.splitext(os.path.basename(sai1))[0] + ".fastq.gz"
-    sample = fastq_metadata[fastq_name]['sample']
-    runID = fastq_metadata[fastq_name]['run_id']
-    lane = fastq_metadata[fastq_name]['lane']
-    readgroup_metadata = { 'PL': 'ILLUMINA',
-                           'SM': sample,
-                           'ID': "%s_%s_Lane%d" % (sample, runID, lane) }
-    metadata_str = make_metadata_string(readgroup_metadata)
-    print "bwa sampe on %s,%s" % (os.path.basename(sai1), os.path.basename(sai2))
-    runStageCheck('alignToSamPE', flag_file, ref_files['bwa_reference'], metadata_str, sai1, sai2, seq1, seq2, output)
+#@collate(alignBWA, regex(r"(.*?)([^/]+)(_1|_2)\.sai"), 
+#        add_inputs(r"%s/\2\3_trimmed.fastq.gz" % working_files['fastq_symlink_dir']),
+#        [r"\1\2.sam", r"\1\2.alignToSam.Success"])
+#def alignToSam(inputs, outputs):
+#    """
+#    Turn two paired-end bwa "sai" alignments into a sam file.
+#    """
+#    output,flag_file = outputs
+#    [sai1, seq1], [sai2, seq2] = [[sai, seq] for [[sai, _flag_file], seq] in inputs]
+#    fastq_name = os.path.splitext(os.path.basename(sai1))[0] + ".fastq.gz"
+#    sample = fastq_metadata[fastq_name]['sample']
+#    runID = fastq_metadata[fastq_name]['run_id']
+#    lane = fastq_metadata[fastq_name]['lane']
+#    readgroup_metadata = { 'PL': 'ILLUMINA',
+#                           'SM': sample,
+#                           'ID': "%s_%s_Lane%d" % (sample, runID, lane) }
+#    metadata_str = make_metadata_string(readgroup_metadata)
+#    print "bwa sampe on %s,%s" % (os.path.basename(sai1), os.path.basename(sai2))
+#    runStageCheck('alignToSamPE', flag_file, ref_files['bwa_reference'], metadata_str, sai1, sai2, seq1, seq2, output)
 
-@transform(alignToSam, suffix(".sam"),
+@transform(alignBismark, suffix(".fq"),
             [".bam", ".samToBam.Success"])
 def samToBam(inputs, outputs):
     """
     Convert sam to bam and sort, using Picard.
     """
     output, flag_file = outputs
-    sam, _success = inputs
-    print "converting to sorted bam: %s" % os.path.basename(sam)
-    runStageCheck('samToSortedBam', flag_file, sam, output)
+    unmapped_1, unmapped_2, pe, report, _success = inputs
+    print "converting to sorted bam: %s" % os.path.basename(pe)
+    runStageCheck('samToSortedBam', flag_file, pe, output)
 
-@collate(samToBam, regex(r'(.*?)([^/_]+)_([^/_]+_[^/_]+)\.bam'), 
-            [r"\1\2.bam", r'\1\2.mergeBams.Success'])
+@transform(alignBismarkSE_R1, suffix(".fq"),
+           [".bam", ".samToBam_SE_1.Success"])
+def samToBam_SE_1(inputs, outputs):
+    """
+    Convert sam to bam and sort, using Picard, for the SE alignment
+    """
+    output, flag_file = outputs
+    unmapped, se, report, _success = inputs
+    print "converting to sorted bam: %s" % os.path.basename(se)
+    runStageCheck('samToSortedBam', flag_file, se, output)
+
+
+@transform(alignBismarkSE_R2, suffix(".fq"),
+           [".bam", ".samToBam_SE_2.Success"])
+def samToBam_SE_2(inputs, outputs):
+    """
+    Convert sam to bam and sort, using Picard, for the SE alignment
+    """
+    output, flag_file = outputs
+    unmapped, se, report, _success = inputs
+    print "converting to sorted bam: %s" % os.path.basename(se)
+    runStageCheck('samToSortedBam', flag_file, se, output)
+
+@collate([samToBam, samToBam_SE_1, samToBam_SE_2], regex(r'([^UF]+)([^\.]+)(_R.*?)\.(.*?)\.bam'), 
+            [r"%s/\2.bam" % sambam_dir, r'%s/\2.mergeBams.Success'% sambam_dir])
 def mergeBams(inputs, outputs):
     """
     Merge the sorted bams together for each sample.

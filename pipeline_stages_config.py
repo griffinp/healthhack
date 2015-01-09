@@ -19,7 +19,7 @@
 stageDefaults = {
     'distributed': True,
     'walltime': "08:00:00",
-    'memInGB': 8,
+    'memInGB': 6,
     'queue': "batch",
     'modules': [
         "intel/13.1.3",
@@ -33,9 +33,11 @@ stageDefaults = {
         "trimmomatic/0.30",
         "igv/2.3.15",
         "perl/5.18.0",
-        "freebayes-gcc/0.9.10"
+        "freebayes-gcc/0.9.10",
+        "bismark/0.13.0",
+        "bowtie2-intel/2.2.1"
     ],
-    "jobscript": "--account=VR0339",
+    "jobscript": "--account=VR0002",
 }
 
 # stages should hold the details of each stage which can be called by runStageCheck.
@@ -64,29 +66,53 @@ stages = {
     },
     "trimReads": {
         "command": "java -Xmx6g -jar /usr/local/trimmomatic/0.30/trimmomatic-0.30.jar %paired -threads 1 -phred33 -trimlog %trim_log %parameters",
-        "walltime": "10:00:00",
-        "memInGB": 10,
+        "walltime": "4:00:00",
+        "memInGB": 6,
     },
     "fastqc_trimmed": {
         "command": "fastqc --quiet -o %outdir %seq",
         "walltime": "1:00:00",
         "modules": [ "fastqc/0.10.1" ]
     },
-    'alignBWA': {
-        'command': "bwa aln -t 8 -n 0.01 -o 2 -d 12 -e 12 -l 150 %encodingflag %ref %seq > %out",
-        'walltime': "4:00:00",
+    'gUnzip': {
+        "command": "gunzip -c %seq > %out",
+        "walltime": "0:30:00",
+        "memInGB": 4
+    },
+    'alignBismark': {
+        'command': "bismark --bowtie2 --non_directional -o %output_dir --score_min L,0,-0.6 --minins 0 --maxins 1000 --un --ambiguous -N 1 -L 16 -D 20 -R 5 -p 4 %ref_dir -1 %seq1 -2 %seq2",
+        'walltime': "48:00:00",
         'queue': 'smp',
-        'memInGB': 23
+        'memInGB': 64
     },
-    'alignToSamSE': {
-        'command': "bwa samse %ref %meta %align %seq > %out"
+    'alignBismarkSE_R1': {
+        'command': "bismark --bowtie2 --non_directional -o %output_dir --score_min L,0,-0.6 --un --ambiguous -N 1 -L 16 -D 20 -R 5 -p 4 %ref_dir %seq",
+        'walltime': "48:00:00",
+        'queue': 'smp',
+        'memInGB': 64
     },
-    'alignToSamPE': {
-        'command': "bwa sampe %ref %meta %align1 %align2 %seq1 %seq2 > %out"
+    'alignBismarkSE_R2': {
+        'command': "bismark --bowtie2 --non_directional -o %output_dir --score_min L,0,-0.6 --un --ambiguous -N 1 -L 16 -D 20 -R 5 -p 4 %ref_dir %seq",
+        'walltime': "48:00:00",
+        'queue': 'smp',
+        'memInGB': 64
     },
+#    'alignBWA': {
+#        'command': "bwa aln -t 8 -n 0.01 -o 2 -d 12 -e 12 -l 150 %encodingflag %ref %seq > %out",
+#        'walltime': "4:00:00",
+#        'queue': 'smp',
+#        'memInGB': 23
+#    },
+#    'alignToSamSE': {
+#        'command': "bwa samse %ref %meta %align %seq > %out"
+#    },
+#    'alignToSamPE': {
+#        'command': "bwa sampe %ref %meta %align1 %align2 %seq1 %seq2 > %out"
+#    },
     'samToSortedBam': {
-        'command': "java -Xmx4g -jar /usr/local/picard/1.69/lib/SortSam.jar VALIDATION_STRINGENCY=LENIENT INPUT=%seq OUTPUT=%out SORT_ORDER=coordinate",
-        'walltime': "4:00:00",
+        'command': "java -Xmx4g -Djava.io.tmpdir=`pwd`/picard_tmp -jar /usr/local/picard/1.69/lib/SortSam.jar VALIDATION_STRINGENCY=LENIENT INPUT=%seq OUTPUT=%out SORT_ORDER=coordinate TMP_DIR=`pwd`/picard_tmp",
+        'memInGB': 64,
+        'walltime': "6:00:00",
     },
     'mergeBams': {
         'command': "java -Xmx4g -jar /usr/local/picard/1.69/lib/MergeSamFiles.jar %baminputs USE_THREADING=true VALIDATION_STRINGENCY=LENIENT AS=true OUTPUT=%out",
